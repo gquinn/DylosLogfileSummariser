@@ -23,8 +23,8 @@ namespace DylosLogfileSummariser
         const string helpMessage2 = helpMessage1 + " or press \"Summarise Files\" to process the raw data";
 
         const string gnuPlotInfo = "Development/Testing graphs with gnuPlot 4.6.0 http://sourceforge.net/projects/gnuplot/files/";
-        const string gnuPlotLocation1 = "C:\\xProgram Files\\gnuplot\\bin\\gnuplot.exe";
-        const string gnuPlotLocation2 = "C:\\xProgram Files (x86)\\gnuplot\\bin\\gnuplot.exe";
+        const string gnuPlotLocation1 = "C:\\Program Files\\gnuplot\\bin\\gnuplot.exe";
+        const string gnuPlotLocation2 = "C:\\Program Files (x86)\\gnuplot\\bin\\gnuplot.exe";
 
 
         //
@@ -140,7 +140,7 @@ namespace DylosLogfileSummariser
                             string smallString = line.Substring(smallIndex + 2);
                             int largeIndex = smallString.IndexOf(',');
 
-                            long.TryParse(smallString.Substring(0,largeIndex-1), out small);
+                            long.TryParse(smallString.Substring(0,largeIndex), out small);
                             long.TryParse(smallString.Substring(largeIndex + 2), out large);
 
                             outFile.WriteLine(line.Substring(9, 5) + "," + small + "," + large);
@@ -383,9 +383,9 @@ namespace DylosLogfileSummariser
 
                     if (hourFile != null)
                     {
-                        hourFile.WriteLine("Hour Number" + "," +
-                                           "Small Particle Count Average" + "," +
-                                           "Large Particle Count Average" + "," +
+                        hourFile.WriteLine("Hour" + "," +
+                                           "Small Particle Count Hourly Average" + "," +
+                                           "Large Particle Count Hourly Average" + "," +
                                            "Number Of Values This Hour" + "," +
                                            "Min Small PC Value" + "," +
                                            "Max Small PC Value" + "," +
