@@ -9,26 +9,59 @@ using System.Windows.Forms;
 using System.Threading;
 using System.IO;
 
+//
+//  See the Readme.txt file for info !
+//
+
 namespace DylosLogfileSummariser
 {
     public partial class Form1 : Form
     {
+        const string versionInfo = "Dylos Log File Summariser.  Project Started 14th April 2013.  This version 15th April 2013";
         const string tempSubString = "unsorted_";
+        const string helpMessage1 = "Press \"Choose LogFile Directory\" to Locate a Dylos Logs Directory";
+        const string helpMessage2 = helpMessage1 + " or press \"Summarise Files\" to process the raw data";
 
+        const string gnuPlotInfo = "Development/Testing graphs with gnuPlot 4.6.0 http://sourceforge.net/projects/gnuplot/files/";
+        const string gnuPlotLocation1 = "C:\\xProgram Files\\gnuplot\\bin\\gnuplot.exe";
+        const string gnuPlotLocation2 = "C:\\xProgram Files (x86)\\gnuplot\\bin\\gnuplot.exe";
+
+
+        //
+        // class constructor
+        //
         public Form1()
         {
             InitializeComponent();
 
-            Step.Text = "Press \"Choose LogFile Directory\" to Locate a Dylos Logs Directory";
+            Step.Text = helpMessage1;
             Status.Text = "";
             FileStatus.Text = "";
 
             WorkingDirectory.Text = "C:\\";
 
+            Version.Text = versionInfo;
+
             Summarise.Enabled = false;
 
-        } // public Form1()
+            GNUPlotLocation.Text = locateDefaultGNUPlotInstallation();
 
+            validateGNUPlotLocation();
+
+        } //  Form1 class constructor
+
+        private string locateDefaultGNUPlotInstallation()
+        {
+            if (File.Exists(gnuPlotLocation1)) return gnuPlotLocation1;
+            if (File.Exists(gnuPlotLocation2)) return gnuPlotLocation2;
+
+            return "";
+        }
+
+
+        //
+        // Callback function for the "Choose Logfile Directory" button
+        //
         private void DirectoryBrowser_Click(object sender, EventArgs e)
         {
             Status.Text = "";
@@ -44,11 +77,11 @@ namespace DylosLogfileSummariser
 
                 Summarise.Enabled = true;
 
-                Step.Text = "Press \"Choose LogFile Directory\" to Locate a Dylos Logs Directory or \"Summarise Files\" to process the raw data";
+                Step.Text = helpMessage2;
                 Step.Update();
             }
 
-        } // private void DirectoryBrowser_Click(object sender, EventArgs e)
+        } // Callback function for DirectoryBrowser_Click
 
         private bool processDylosLogFile(string dayFilesFolder, string filename)
         {
@@ -147,7 +180,7 @@ namespace DylosLogfileSummariser
 
             return processed;
 
-        } // private void processLogFile(string filename)
+        } // processLogFile()
 
         //
         // Dylos files can contain data from several days of monitoring, AND
@@ -178,7 +211,8 @@ namespace DylosLogfileSummariser
 
             FileStatus.Text = "";
             FileStatus.Update();
-        }
+
+        } // splitDylosFilesIntoDayFiles()
 
         private void sortAndSummariseDayFiles(string dayFilesFolder)
         {
@@ -211,7 +245,7 @@ namespace DylosLogfileSummariser
                     file.Close();
                 }
 
-                if (fileContents.Count > 0)
+                if (fileContents.Count > 0) // if there was any data in the file
                 {
                     fileContents.Sort();
 
@@ -251,7 +285,6 @@ namespace DylosLogfileSummariser
                     List<long>      largeMaxVal     = new List<long>();
 
                     int     lastHour = -1;
-                    //int     thisHour;
                     int     thisLinesHour;
                     int     numberOfEntriesThisHour = 0;
 
@@ -393,13 +426,25 @@ namespace DylosLogfileSummariser
         
             FileStatus.Text = "";
             FileStatus.Update();
-        }
 
+        } // sortAndSummariseDayFiles()
+
+        //
+        // Callback function for the "Summarise" button
+        //
         private void Summarise_Click(object sender, EventArgs e)
         {
+            //
+            // Disable GUI buttons while we process the data
+            //
             DirectoryBrowser.Enabled    = false;
             Summarise.Enabled           = false;
+            UseGNUPlot.Enabled          = false;
+            LocateGNUPlot.Enabled       = false;
 
+            //
+            //  Backup any existing summary data.
+            //
             string dylosFolder      = WorkingDirectory.Text;
             string dayFilesBackup   = dylosFolder + "\\OldDayFiles";
             string dayFilesFolder   = dylosFolder + "\\DayFiles";
@@ -419,7 +464,7 @@ namespace DylosLogfileSummariser
             Directory.CreateDirectory(dayFilesFolder);
 
 
-            // Seperate each day's monitoring data into a file for each day
+            // Seperate monitoring data into seperate files for each day
             Step.Text = "Step 1.  Process Raw data files.";
             Step.Update();
 
@@ -438,10 +483,77 @@ namespace DylosLogfileSummariser
             Step.Text = "Done.";
             Step.Update();
             
+            //
+            //  We've finished processing, so the GUI can be re-enabled.
+            //
             DirectoryBrowser.Enabled = true;
-            Summarise.Enabled           = true;
+            Summarise.Enabled        = true;
+            UseGNUPlot.Enabled       = true;
+            LocateGNUPlot.Enabled    = true;
 
-        }
+        } // callback function for Summarise_Click
+
+        //
+        // Set the colour of the GNUPlot file location textbox according
+        // whether or not the specified file exists.
+        //
+        private void validateGNUPlotLocation()
+        {
+            if ( File.Exists(GNUPlotLocation.Text) && (Path.GetExtension(GNUPlotLocation.Text).ToLower() == ".exe") )
+            {
+                GNUPlotLocation.BackColor = Color.LightGreen;
+            }
+            else // if we get here, the specified exe file does not exist.
+            if (UseGNUPlot.Checked)
+            {
+                    GNUPlotLocation.BackColor = Color.Tomato;
+            }
+            else
+            {
+                    GNUPlotLocation.BackColor = Color.LightGray;
+            }
+
+            GNUPlotLocation.Update();
+
+        } // validateGNUPlotLocation()
+
+        private void UseGNUPlot_CheckedChanged(object sender, EventArgs e)
+        {
+            validateGNUPlotLocation();
+
+        } // Callback function for UseGNUPlot_CheckedChanged
+
+        private void GNUPlotLocation_TextChanged(object sender, EventArgs e)
+        {
+            validateGNUPlotLocation();
+
+        } // Callback function for GNUPlotLocation_TextChanged
+
+        private void LocateGNUPlot_Click(object sender, EventArgs e)
+        {
+            if (File.Exists(GNUPlotLocation.Text))
+            {
+                GNUPlotBrowser.InitialDirectory = Path.GetDirectoryName(GNUPlotLocation.Text);
+                GNUPlotBrowser.FileName = GNUPlotLocation.Text;
+            }
+            else
+            {
+                GNUPlotBrowser.InitialDirectory = "C:\\";
+                GNUPlotBrowser.FileName = "";
+            }
+
+            GNUPlotBrowser.CheckPathExists = true;
+            GNUPlotBrowser.DefaultExt = "exe";
+            GNUPlotBrowser.Multiselect = false;
+
+            DialogResult result = GNUPlotBrowser.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                GNUPlotLocation.Text = GNUPlotBrowser.FileName;
+                validateGNUPlotLocation();
+            }
+        } 
 
      } // public partial class Form1 : Form
+
 } // namespace DylosLogfileSummariser
