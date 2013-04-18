@@ -429,6 +429,23 @@ namespace DylosLogfileSummariser
 
         } // sortAndSummariseDayFiles()
 
+        private void runGnuPlot(string dayFilesFolder)
+        {
+            foreach (string filename in System.IO.Directory.GetFiles(dayFilesFolder))
+            {
+                if (filename.IndexOf(tempSubString) != 0) // don't plot the unsorted files
+                {
+                    if (filename.Length > 5)
+                    {
+                        string gnuConfFile = filename.Substring(0, filename.Length - 3) + "gnuPlot";
+
+                        todo todo todo
+                    }
+                }
+            }
+ 
+        }
+
         //
         // Callback function for the "Summarise" button
         //
@@ -477,6 +494,17 @@ namespace DylosLogfileSummariser
 
             sortAndSummariseDayFiles(dayFilesFolder);
 
+
+            // Produce config files for gnuPlot
+            Step.Text = "Step 3.  Produce gnuPlot config files and create graphs.";
+            Step.Update();
+
+            if (UseGNUPlot.Checked && validateGNUPlotLocation())
+            {
+                runGnuPlot(dayFilesFolder);
+            }
+
+
             // Automate the graph production for each day and hour summary file
             // Still todo
 
@@ -496,12 +524,15 @@ namespace DylosLogfileSummariser
         //
         // Set the colour of the GNUPlot file location textbox according
         // whether or not the specified file exists.
+        // Returns true if an exe file has been identified
         //
-        private void validateGNUPlotLocation()
+        private bool validateGNUPlotLocation()
         {
             if ( File.Exists(GNUPlotLocation.Text) && (Path.GetExtension(GNUPlotLocation.Text).ToLower() == ".exe") )
             {
                 GNUPlotLocation.BackColor = Color.LightGreen;
+
+                return true;
             }
             else // if we get here, the specified exe file does not exist.
             if (UseGNUPlot.Checked)
@@ -514,6 +545,8 @@ namespace DylosLogfileSummariser
             }
 
             GNUPlotLocation.Update();
+
+            return false;
 
         } // validateGNUPlotLocation()
 
