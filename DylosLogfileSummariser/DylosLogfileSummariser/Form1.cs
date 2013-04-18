@@ -58,7 +58,6 @@ namespace DylosLogfileSummariser
             return "";
         }
 
-
         //
         // Callback function for the "Choose Logfile Directory" button
         //
@@ -103,16 +102,12 @@ namespace DylosLogfileSummariser
                 {
                     lineCount++;
 
-                    //FileStatus.Text = "Line " + lineCount;
-                    //FileStatus.Update();
-
                     string lastOutFilename = "";
 
                     long small, large;
 
                     if (line[2] == '/') // we've found a date on this line, indicating the start of some particle count data
                     {
-                        //string dayFilesFolder = folderName + "/Dayfiles";
                         Directory.CreateDirectory(dayFilesFolder);
 
                         string outFilename = dayFilesFolder + "\\" + tempSubString + line.Substring(0, 2) + line.Substring(3, 2) + line.Substring(6, 2) + ".csv";
@@ -249,8 +244,6 @@ namespace DylosLogfileSummariser
                 {
                     fileContents.Sort();
 
-                    //string sortedFilename = "Day_" + filename.Substring( tempSubString.Length );
-
                     int lastTempSubStringPosition = filename.LastIndexOf(tempSubString);
                     string sortedFilename = filename.Substring(0, lastTempSubStringPosition) +
                                             "Day_" + filename.Substring(lastTempSubStringPosition + tempSubString.Length);
@@ -259,18 +252,43 @@ namespace DylosLogfileSummariser
 
                     if (outFile != null)
                     {
-                        for (int i=0; i<fileContents.Count; i++)
+                        outFile.WriteLine("Time,Small Particle Count,Large Particle Count");
+
+                        string xticsString = "set xtics axis (";
+
+                        int lastTicPos = -10;
+
+                        for (int i = 0; i < fileContents.Count; i++)
                         {
                             outFile.WriteLine(fileContents[i]);
+
+                            if (fileContents[i].Length > 5)
+                            {
+                                // (i - lastTicPos > 5)  prevents tics on adjacent values (Dylos DC1100 sometimes reports two values in the same minute)
+                                if ((fileContents[i].Substring(3, 2) == "00") && (i - lastTicPos > 5))
+                                {
+                                    if (lastTicPos >= 0) // then we have previously written a tic, so we need a comma
+                                    {
+                                        xticsString = xticsString + ", ";
+                                    }
+
+                                    //xticsString = xticsString + " \"" + fileContents[i].Substring(0, 5) + "\", " + (i + 1);
+                                    xticsString = xticsString + (i + 0);
+                                    lastTicPos = i;
+                                }
+                            }
                         }
+
+                        xticsString = xticsString + ")";
                         outFile.Close();
 
+                        createGnuPlotConfigFile(xticsString, sortedFilename);
+ 
                         FileStatus.Text = "Written " + fileContents.Count + " Lines to " + sortedFilename;
                         FileStatus.Update();
                     }
 
-                    // now summarise the file into averaged hours
-                    // still todo
+                    // summarise the file into averaged hours
 
                     string averagedHourFilename = filename.Substring(0, lastTempSubStringPosition) +
                         "Hours_" + filename.Substring(lastTempSubStringPosition + tempSubString.Length);
@@ -285,7 +303,7 @@ namespace DylosLogfileSummariser
                     List<long>      largeMaxVal     = new List<long>();
 
                     int     lastHour = -1;
-                    int     thisLinesHour;
+                    int     hour;
                     int     numberOfEntriesThisHour = 0;
 
                     double  thisHoursSmallTotal = 0.0;
@@ -303,10 +321,10 @@ namespace DylosLogfileSummariser
                     long    large;
 
 
-                    long    smallMin=0;
-                    long    smallMax=0;
-                    long    largeMin=0;
-                    long    largeMax=0;
+                    long    smallMin = 99999999;  // These values are not used
+                    long    smallMax = 99999999;  // but we need to initialise 
+                    long    largeMin = 0;         // the variables to 
+                    long    largeMax = 0;         // keep the compiler happy.
 
 
                     for (int i = 0; i < fileContents.Count; i++) // foreach data entry in the file
@@ -316,14 +334,14 @@ namespace DylosLogfileSummariser
                         smallValueString = fileContents[i].Substring(comma1Position+1,comma2Position-comma1Position-1);
                         largeValueString = fileContents[i].Substring(comma2Position+1);
 
-                        small            = long.Parse(smallValueString);
-                        large            = long.Parse(largeValueString);
+                        small = long.Parse(smallValueString);
+                        large = long.Parse(largeValueString);
 
-                        thisLinesHour    = int.Parse(fileContents[i].Substring(0, 2));
+                        hour  = int.Parse(fileContents[i].Substring(0, 2));
 
                         if (i == 0) // initialisation
                         {
-                            lastHour = thisLinesHour;
+                            lastHour = hour;
                             lastHourString = fileContents[i].Substring(0, 5);
                             numberOfEntriesThisHour = 0;
 
@@ -333,10 +351,10 @@ namespace DylosLogfileSummariser
                             largeMax = large;
                         }
 
-                         // if the hour number changes, OR
+                        // if the hour number changes, OR
                         // this is the last entry in the file then
                         // add the previous entry into the list of entries
-                        if ((thisLinesHour != lastHour) || (i == (fileContents.Count - 1)) ) 
+                        if ((hour != lastHour) || (i == (fileContents.Count - 1)) ) 
                         {
                             hourNumber.Add(lastHourString);
                             smallAverage.Add(thisHoursSmallTotal / (double)(numberOfEntriesThisHour));
@@ -349,11 +367,11 @@ namespace DylosLogfileSummariser
                             largeMaxVal.Add(largeMax);
 
 
-                            lastHour = thisLinesHour;
+                            lastHour = hour;
 
-                            thisHoursSmallTotal = small;
-                            thisHoursLargeTotal = large;
-                            numberOfEntriesThisHour = 1;
+                            thisHoursSmallTotal = 0;
+                            thisHoursLargeTotal = 0;
+                            numberOfEntriesThisHour = 0;
 
                             smallMin = small;
                             smallMax = small;
@@ -363,33 +381,31 @@ namespace DylosLogfileSummariser
                             lastHourString = fileContents[i].Substring(0, 5);
                         }
 
-                        // add this entry into the total for this hour
-                        if (thisLinesHour == lastHour)
-                        {
-                            thisHoursSmallTotal += small;
-                            thisHoursLargeTotal += large;
-                            numberOfEntriesThisHour++;
+                        // accumulate the total for the hour
+                        thisHoursSmallTotal += small;
+                        thisHoursLargeTotal += large;
+                        numberOfEntriesThisHour++;
 
-                            if (small < smallMin) smallMin = small;
-                            if (small > smallMax) smallMax = small;
-                            if (large < largeMin) largeMin = large;
-                            if (large > largeMax) largeMax = large;
-                        }
+                        if (small < smallMin) smallMin = small;
+                        if (small > smallMax) smallMax = small;
+                        if (large < largeMin) largeMin = large;
+                        if (large > largeMax) largeMax = large;
 
                     } //for (int i = 0; i < fileContents.Count; i++) // foreach data entry in the file
 
                     // Write the average hour values into a new file
+                    createGnuPlotConfigFile("", averagedHourFilename);
                     System.IO.StreamWriter hourFile = new System.IO.StreamWriter(averagedHourFilename);
 
                     if (hourFile != null)
                     {
-                        hourFile.WriteLine("Hour" + "," +
-                                           "Small Particle Count Hourly Average" + "," +
-                                           "Large Particle Count Hourly Average" + "," +
-                                           "Number Of Values This Hour" + "," +
-                                           "Min Small PC Value" + "," +
-                                           "Max Small PC Value" + "," +
-                                           "Min Largearge PC Value" + "," +
+                        hourFile.WriteLine("Hour," + 
+                                           "Small Particle Count Hourly Average," + 
+                                           "Large Particle Count Hourly Average," + 
+                                           "Number Of Values This Hour," + 
+                                           "Min Small PC Value," + 
+                                           "Max Small PC Value," + 
+                                           "Min Largearge PC Value," + 
                                            "Max Large PC Value");
 
                         for (int i = 0; i < hourNumber.Count; i++)
@@ -422,6 +438,8 @@ namespace DylosLogfileSummariser
 
                 fileContents.Clear(); // finished with the file contents
 
+                Thread.Sleep(0); // Don't hog the CPU
+
             } // foreach filename
         
             FileStatus.Text = "";
@@ -429,20 +447,77 @@ namespace DylosLogfileSummariser
 
         } // sortAndSummariseDayFiles()
 
-        private void runGnuPlot(string dayFilesFolder)
+        private void createGnuPlotConfigFile(string xticsString, string csvFilename)
         {
-            foreach (string filename in System.IO.Directory.GetFiles(dayFilesFolder))
-            {
-                if (filename.IndexOf(tempSubString) != 0) // don't plot the unsorted files
-                {
-                    if (filename.Length > 5)
-                    {
-                        string gnuConfFile = filename.Substring(0, filename.Length - 3) + "gnuPlot";
+            int filenameLen = csvFilename.Length;
 
-                        todo todo todo
+            if ((filenameLen > 10) && (csvFilename.IndexOf(tempSubString) != 0)) // don't plot the unsorted files
+            {
+                string gnuConfFile = csvFilename.Substring(0, csvFilename.Length - 3) + "gnuPlot";
+                string pngFilename = (csvFilename.Substring(0, csvFilename.Length - 3) + "png").Replace("\\", "/"); // Windows likes "\", gnuPlot like "/" directory seperators
+                string gnuCompatibleCSVFilename = csvFilename.Replace("\\", "/");
+
+                int month = int.Parse(csvFilename.Substring(filenameLen - 10, 2));
+                int date = int.Parse(csvFilename.Substring(filenameLen - 8, 2));
+                int year = 2000 + int.Parse(csvFilename.Substring(filenameLen - 6, 2));
+
+                DateTime d = new DateTime(year, month, date);
+
+                System.IO.StreamWriter gnuFile = new System.IO.StreamWriter(gnuConfFile);
+
+                if (gnuFile != null)
+                {
+                    gnuFile.WriteLine("set terminal png");
+                    gnuFile.WriteLine("set datafile separator \',\'");
+                    gnuFile.WriteLine("set key autotitle columnhead");
+                    gnuFile.WriteLine("set xlabel \"Time\"");
+                    gnuFile.WriteLine("set ylabel \"Particle Count per cubic foot\"");
+                    gnuFile.WriteLine("set title \"" + d.ToString("D") + "\"");
+
+                    gnuFile.WriteLine("set output \"" + pngFilename + "\"");
+                    gnuFile.WriteLine("set xtics nomirror rotate by -90");
+
+                    if (xticsString.Length > 0)
+                    {
+                        gnuFile.WriteLine(xticsString);
+                        gnuFile.WriteLine("plot \"" + gnuCompatibleCSVFilename + "\" using 1:2 with lines, \"\" using 1:3 with lines");
                     }
+                    else
+                    {
+                        gnuFile.WriteLine("plot \"" + gnuCompatibleCSVFilename + "\" using 1:2 with lines, \"\" using 1:3 with lines, \"\" using 1:xticlabels(1)");
+                    }
+
+                    gnuFile.Close();
                 }
+
             }
+        }
+
+        private void createGnuBatchFile(string dayFilesFolder)
+        {
+            System.IO.StreamWriter batFile = new System.IO.StreamWriter(dayFilesFolder + "\\RunGnuPlot.bat");
+
+            if (batFile == null)
+            {
+                return;
+            }
+
+            batFile.WriteLine("REM @ECHO OFF");
+            batFile.WriteLine("REM");
+            batFile.WriteLine("REM Automatically generated Batch file " + DateTime.Now.ToString("D"));
+            batFile.WriteLine("REM Create graphs for each csv file in the directory");
+            batFile.WriteLine("REM");
+            batFile.WriteLine("");
+
+            foreach (string filename in System.IO.Directory.GetFiles(dayFilesFolder,"*.gnuPlot"))
+            {
+                batFile.WriteLine("\"" + GNUPlotLocation.Text + "\" \"" + filename + "\"");
+            }
+
+            batFile.WriteLine("");
+            batFile.WriteLine("pause");
+            batFile.WriteLine("");
+            batFile.Close();
  
         }
 
@@ -451,14 +526,6 @@ namespace DylosLogfileSummariser
         //
         private void Summarise_Click(object sender, EventArgs e)
         {
-            //
-            // Disable GUI buttons while we process the data
-            //
-            DirectoryBrowser.Enabled    = false;
-            Summarise.Enabled           = false;
-            UseGNUPlot.Enabled          = false;
-            LocateGNUPlot.Enabled       = false;
-
             //
             //  Backup any existing summary data.
             //
@@ -472,14 +539,29 @@ namespace DylosLogfileSummariser
                 Directory.Delete(dayFilesBackup, true); 
             }
 
-            // rename the existing day folder as a backup
-            if (Directory.Exists(dayFilesFolder))
+            if (Directory.Exists(dayFilesFolder)) // rename the existing day folder as a backup
             {
-                Directory.Move(dayFilesFolder, dayFilesBackup);
+                try
+                {
+                    Directory.Move(dayFilesFolder, dayFilesBackup);
+                }
+                catch (Exception)
+                {
+                    DialogResult result1 = MessageBox.Show("Unable to create a backup of the current outputfolder " + dayFilesFolder,
+                                                           "Check for open files and/or directories", MessageBoxButtons.OK);
+                    return;
+                }
             }
 
             Directory.CreateDirectory(dayFilesFolder);
 
+            //
+            // Disable GUI buttons while we process the data
+            //
+            DirectoryBrowser.Enabled = false;
+            Summarise.Enabled = false;
+            UseGNUPlot.Enabled = false;
+            LocateGNUPlot.Enabled = false;
 
             // Seperate monitoring data into seperate files for each day
             Step.Text = "Step 1.  Process Raw data files.";
@@ -501,7 +583,7 @@ namespace DylosLogfileSummariser
 
             if (UseGNUPlot.Checked && validateGNUPlotLocation())
             {
-                runGnuPlot(dayFilesFolder);
+                createGnuBatchFile(dayFilesFolder);
             }
 
 
